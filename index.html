@@ -1,0 +1,288 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>giochino figo BY M00D!</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin-top: 40px;
+        background: #eef7ff;
+    }
+
+    #settings {
+        width: 300px;
+        margin: auto;
+        text-align: left;
+    }
+
+    #gameArea {
+        width: 300px;
+        height: 300px;
+        border: 5px solid black;
+        margin: 20px auto;
+        position: relative;
+        background: #c6e9f9;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    #square {
+        width: 60px;
+        height: 60px;
+        background: cyan;
+        position: absolute;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: transform 0.1s, background 0.15s;
+    }
+
+    #square:active {
+        transform: scale(0.85);
+    }
+
+    #startBtn {
+        padding: 10px 20px;
+        font-size: 18px;
+        cursor: pointer;
+        border: none;
+        background: #4db8ff;
+        color: white;
+        border-radius: 8px;
+        transition: 0.2s;
+        margin-top: 10px;
+    }
+
+    #startBtn:hover { background: #289ad8; }
+
+    select, input[type=range] {
+        padding: 6px;
+        font-size: 16px;
+        border-radius: 6px;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    /* MODAL */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modalContent {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        width: 300px;
+        text-align: center;
+        animation: pop 0.2s ease-out;
+    }
+
+    @keyframes pop {
+        from { transform: scale(0.7); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    #closeStats {
+        margin-top: 15px;
+        padding: 10px 15px;
+        font-size: 16px;
+        border: none;
+        background: #4db8ff;
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    #closeStats:hover { background: #289ad8; }
+</style>
+</head>
+<body>
+
+<h1>🎯 Clicca il quadrato!</h1>
+<h2>Scegli le impostazioni e vediamo quanti punti fai 😎</h2>
+
+<p>
+    <strong>Punti:</strong> <span id="score">0</span> | 
+    <strong>Tempo:</strong> <span id="time">10</span>s |
+    <strong>Record:</strong> <span id="best">0</span>
+</p>
+
+<div id="settings">
+
+    <label><strong>Dimensione quadrato:</strong> <span id="sizeLabel">60px</span></label>
+    <input type="range" id="sizeRange" min="30" max="120" value="60">
+
+    <label><strong>Difficoltà:</strong></label>
+    <select id="difficulty">
+        <option value="2000">Facile 😄 (2s)</option>
+        <option value="1500">Medio 🙂 (1.5s)</option>
+        <option value="1000">Difficile 😈 (1s)</option>
+        <option value="500">Super Mega Impossibile 💀 (0.5s)</option>
+    </select>
+
+    <!-- 🔥 NUOVA BARRA TEMPO -->
+    <label><strong>Tempo di gioco:</strong> <span id="timeLabel">10s</span></label>
+    <input type="range" id="timeRange" min="5" max="60" value="10">
+
+</div>
+
+<button id="startBtn">Inizia!</button>
+
+<div id="gameArea">
+    <div id="square"></div>
+</div>
+
+<!-- MODALE STATISTICHE -->
+<div id="statsModal" class="modal">
+    <div class="modalContent">
+        <h2>📊 Statistiche finali</h2>
+        <p id="statsText"></p>
+        <button id="closeStats">Chiudi</button>
+    </div>
+</div>
+
+<script>
+const square = document.getElementById("square");
+const gameArea = document.getElementById("gameArea");
+const scoreSpan = document.getElementById("score");
+const timeSpan = document.getElementById("time");
+const bestSpan = document.getElementById("best");
+const startBtn = document.getElementById("startBtn");
+
+const difficultySelect = document.getElementById("difficulty");
+const sizeRange = document.getElementById("sizeRange");
+const sizeLabel = document.getElementById("sizeLabel");
+
+const timeRange = document.getElementById("timeRange");
+const timeLabel = document.getElementById("timeLabel");
+
+let score = 0;
+let timeLeft = 20;
+let moveInterval = null;
+let timerInterval = null;
+let running = false;
+let moveCount = 0;
+let squareSize = parseInt(sizeRange.value);
+
+// Record
+let best = localStorage.getItem("bestScore") || 0;
+bestSpan.textContent = best;
+
+// Aggiorna barra dimensione
+sizeRange.addEventListener("input", () => {
+    squareSize = parseInt(sizeRange.value);
+    sizeLabel.textContent = squareSize + "px";
+    square.style.width = squareSize + "px";
+    square.style.height = squareSize + "px";
+});
+
+// Aggiorna barra tempo
+timeRange.addEventListener("input", () => {
+    timeLabel.textContent = timeRange.value + "s";
+});
+
+function moveSquare() {
+    const maxX = gameArea.clientWidth - square.clientWidth;
+    const maxY = gameArea.clientHeight - square.clientHeight;
+
+    square.style.left = `${Math.random() * maxX}px`;
+    square.style.top = `${Math.random() * maxY}px`;
+
+    moveCount++;
+}
+
+square.addEventListener("click", () => {
+    if (!running) return;
+
+    score++;
+    scoreSpan.textContent = score;
+
+    square.style.background = "#7fffd4";
+    setTimeout(() => square.style.background = "cyan", 120);
+
+    moveSquare();
+});
+
+startBtn.addEventListener("click", () => {
+    if (running) return;
+
+    const speed = parseInt(difficultySelect.value);
+    timeLeft = parseInt(timeRange.value);
+
+    score = 0;
+    moveCount = 0;
+
+    scoreSpan.textContent = score;
+    timeSpan.textContent = timeLeft;
+
+    running = true;
+    startBtn.disabled = true;
+
+    square.style.width = squareSize + "px";
+    square.style.height = squareSize + "px";
+
+    moveSquare();
+
+    moveInterval = setInterval(moveSquare, speed);
+
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        timeSpan.textContent = timeLeft;
+
+        if (timeLeft <= 0) endGame();
+    }, 1000);
+});
+
+function endGame() {
+    clearInterval(moveInterval);
+    clearInterval(timerInterval);
+    running = false;
+
+    const totalTime = parseInt(timeRange.value);
+    const cps = (score / totalTime).toFixed(2);
+    const precision = moveCount ? ((score / moveCount) * 100).toFixed(1) : 0;
+
+    let newRecord = false;
+    if (score > best) {
+        best = score;
+        localStorage.setItem("bestScore", best);
+        bestSpan.textContent = best;
+        newRecord = true;
+    }
+
+    let stats = `
+        🕒 Tempo giocato: <strong>${totalTime}s</strong><br>
+        🎯 Punti: <strong>${score}</strong><br>
+        🎯 Precisione: <strong>${precision}%</strong><br>
+        hai fatto spostare il quadrato: <strong>${moveCount} volte...</strong><br><br>
+    `;
+
+    stats += newRecord
+        ? `<h3>🏆 NUOVO RECORD: ${best} punti!</h3>`
+        : `<h3>👍 Record attuale: ${best} punti</h3>`;
+
+    document.getElementById("statsText").innerHTML = stats;
+    document.getElementById("statsModal").style.display = "flex";
+
+    startBtn.disabled = false;
+    startBtn.textContent = "Rigioca!";
+}
+
+document.getElementById("closeStats").addEventListener("click", () => {
+    document.getElementById("statsModal").style.display = "none";
+});
+</script>
+
+</body>
+</html>
+<p>Creato ed Ideato da Nicolò Alberghina</p>
